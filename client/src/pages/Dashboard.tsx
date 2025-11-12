@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from "react"
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import TransactionsPage from "./Transactions";
 import StatsPage from "./Stats";
 import BudgetPage from "./Budget";
 import ReportsPage from "./Reports";
+import RecurringTransactionsPage from "./RecurringTransactions";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -74,6 +75,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             <TabsTrigger value="budget" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">ميزانية</span>
+            </TabsTrigger>
+            <TabsTrigger value="recurring" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              <span className="hidden sm:inline">متكررة</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
@@ -144,6 +149,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           {/* Budget Tab */}
           <TabsContent value="budget">
             <BudgetPage />
+          </TabsContent>
+
+          {/* Recurring Transactions Tab */}
+          <TabsContent value="recurring">
+            <RecurringTransactionsPage />
           </TabsContent>
 
           {/* Reports Tab */}
