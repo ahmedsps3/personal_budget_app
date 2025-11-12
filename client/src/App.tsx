@@ -1,38 +1,56 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
 
-function Router() {
-  // make sure to consider if you need authentication for certain routes
+function Router({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: () => void }) {
+  if (!isLoggedIn) {
+    return <Login onLoginSuccess={() => window.location.reload()} />;
+  }
+
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
+      <Route path={"/"} component={() => <Dashboard onLogout={onLogout} />} />
       {/* Final fallback route */}
-      <Route component={NotFound} />
+      <Route component={() => <Dashboard onLogout={onLogout} />} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("budgetAppLoggedIn") === "true";
+    setIsLoggedIn(loggedIn);
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <Router
+            isLoggedIn={isLoggedIn}
+            onLogout={() => setIsLoggedIn(false)}
+          />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

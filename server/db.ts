@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, transactions, budgets, recurringTransactions, categories, appSettings, Transaction, Budget, RecurringTransaction, Category, AppSettings } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,208 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Transaction queries
+export async function createTransaction(userId: number, data: Omit<typeof transactions.$inferInsert, 'userId'>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(transactions).values({
+    ...data,
+    userId,
+  });
+  return result;
+}
+
+export async function updateTransaction(transactionId: number, userId: number, data: Partial<Omit<typeof transactions.$inferInsert, 'userId' | 'id'>>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.update(transactions)
+    .set(data)
+    .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)));
+}
+
+export async function deleteTransaction(transactionId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.delete(transactions)
+    .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)));
+}
+
+export async function getTransactionsByMonth(userId: number, year: number, month: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59);
+  
+  return await db.select()
+    .from(transactions)
+    .where(and(
+      eq(transactions.userId, userId),
+      gte(transactions.transactionDate, startDate),
+      lte(transactions.transactionDate, endDate)
+    ))
+    .orderBy(desc(transactions.transactionDate));
+}
+
+export async function getTransactionsByDateRange(userId: number, startDate: Date, endDate: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select()
+    .from(transactions)
+    .where(and(
+      eq(transactions.userId, userId),
+      gte(transactions.transactionDate, startDate),
+      lte(transactions.transactionDate, endDate)
+    ))
+    .orderBy(desc(transactions.transactionDate));
+}
+
+export async function getTransactionsByCategory(userId: number, category: string, year?: number, month?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  let conditions = [
+    eq(transactions.userId, userId),
+    eq(transactions.category, category)
+  ];
+  
+  if (year && month) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+    conditions.push(gte(transactions.transactionDate, startDate));
+    conditions.push(lte(transactions.transactionDate, endDate));
+  }
+  
+  return await db.select()
+    .from(transactions)
+    .where(and(...conditions))
+    .orderBy(desc(transactions.transactionDate));
+}
+
+export async function getAllTransactions(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select()
+    .from(transactions)
+    .where(eq(transactions.userId, userId))
+    .orderBy(desc(transactions.transactionDate));
+}
+
+// Budget queries
+export async function getBudget(userId: number, month: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.select()
+    .from(budgets)
+    .where(and(eq(budgets.userId, userId), eq(budgets.month, month)))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function setBudget(userId: number, month: string, amount: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await getBudget(userId, month);
+  
+  if (existing) {
+    return await db.update(budgets)
+      .set({ amount })
+      .where(eq(budgets.id, existing.id));
+  } else {
+    return await db.insert(budgets).values({
+      userId,
+      month,
+      amount,
+    });
+  }
+}
+
+// Category queries
+export async function getCategories(userId: number, type: 'income' | 'expense') {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select()
+    .from(categories)
+    .where(and(eq(categories.userId, userId), eq(categories.type, type)))
+    .orderBy(asc(categories.name));
+}
+
+export async function createCategory(userId: number, data: Omit<typeof categories.$inferInsert, 'userId'>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.insert(categories).values({
+    ...data,
+    userId,
+  });
+}
+
+// Recurring transactions queries
+export async function getRecurringTransactions(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select()
+    .from(recurringTransactions)
+    .where(and(eq(recurringTransactions.userId, userId), eq(recurringTransactions.isActive, true)))
+    .orderBy(asc(recurringTransactions.category));
+}
+
+export async function createRecurringTransaction(userId: number, data: Omit<typeof recurringTransactions.$inferInsert, 'userId'>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.insert(recurringTransactions).values({
+    ...data,
+    userId,
+  });
+}
+
+export async function updateRecurringTransaction(transactionId: number, userId: number, data: Partial<Omit<typeof recurringTransactions.$inferInsert, 'userId' | 'id'>>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.update(recurringTransactions)
+    .set(data)
+    .where(and(eq(recurringTransactions.id, transactionId), eq(recurringTransactions.userId, userId)));
+}
+
+// App settings queries
+export async function getAppSettings(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.select()
+    .from(appSettings)
+    .where(eq(appSettings.userId, userId))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function createOrUpdateAppSettings(userId: number, data: Partial<Omit<typeof appSettings.$inferInsert, 'userId' | 'id'>>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await getAppSettings(userId);
+  
+  if (existing) {
+    return await db.update(appSettings)
+      .set(data)
+      .where(eq(appSettings.id, existing.id));
+  } else {
+    return await db.insert(appSettings).values({
+      ...data,
+      userId,
+    } as any);
+  }
+}
